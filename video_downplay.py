@@ -1,7 +1,6 @@
-#! python3
+#! python
 
 import subprocess
-import youtube_dl
 import os
 import traceback
 import sys
@@ -10,6 +9,7 @@ import errno
 
 import time
 
+import youtube_dl
 import clipb
 
 # def hook(status):
@@ -22,10 +22,6 @@ import clipb
 
 # hook.player_run = False
 # hook.subprocess = None
-
-video_should_delete = True
-video_should_open = True
-
 
 def hook(status):
     if not hook.player_run:
@@ -50,7 +46,7 @@ def supported_youtube_dl(url):
     for ie in ies:
         if ie.suitable(url) and ie.IE_NAME != 'generic':
             # Site has dedicated extractor
-            if args.yt and ie.IE_NAME != 'youtube':
+            if args.only_youtube and ie.IE_NAME != 'youtube':
                 if args.v:
                     print('clipboard content is not from youtube', flush=True)
                 return False
@@ -74,7 +70,7 @@ def play_url(url):
         'format': 'bestvideo[height>=1080]+bestaudio/bestvideo+bestaudio/best',
         # 'nopart': True,
         # 'progress_hooks': [hook],
-        'outtmpl': args.videoDownDir + "/%(title)s.%(ext)s",
+        'outtmpl': args.download_dir + "/%(title)s.%(ext)s",
         'verbose': args.v,
         'noplaylist': True,
     }
@@ -84,7 +80,7 @@ def play_url(url):
             info = ydl.extract_info(url, download=False)
             videoFilename = ydl.prepare_filename(info)
             if args.v:
-                print("download dir: ", args.videoDownDir, flush=True)
+                print("download dir: ", args.download_dir, flush=True)
             ydl.download([url])
         except Exception as e:
             print(traceback.format_exception(*sys.exc_info()))
@@ -105,12 +101,13 @@ def play_url(url):
             pass
         return
 
-
     try:
+        video_should_open = not args.no_autoplay
+        video_should_delete = args.keep_download
         # Open video
         if video_should_open:
             command = [args.video_player, videoFilename]
-            
+
             print("executing:", flush=True)
             try:
                 print(command, flush=True)
@@ -139,7 +136,7 @@ def play_url(url):
                 print('did not delete ', videoFilename, flush=True)
                 pass
     except SystemExit as e:
-        print(f'SystemExit caught')
+        print(f'SystemExit caught :)')
     except Exception as e:
         print(f'Exception caught {e}')
 
@@ -185,39 +182,37 @@ if __name__ == "__main__":
         'python ' + __file__ + ' arg1 example usage',
         formatter_class=argparse.RawTextHelpFormatter)
 
-    parser.add_argument('-v', action='store_true',
+    parser.add_argument('-v', '--verbose', action='store_true',
                         help='verbose')
     parser.add_argument('link', nargs='?',
                         help='video link')
-    parser.add_argument('videoDownDir', nargs='?', default=os.path.dirname(__file__) + '/downloads/',
+    parser.add_argument('--download_dir', nargs='?', default=os.path.dirname(__file__) + '/downloads/',
                         help='video link')
-    parser.add_argument('video_player', nargs='?', default='mpc-hc64',
+    parser.add_argument('--video_player', nargs='?', default='mpc-hc64',
                         help='video link')
-    parser.add_argument('-yt', action='store_true',
+    parser.add_argument('-yt', '--only_youtube', action='store_true',
                         help='youtube only')
-    parser.add_argument('-k', action='store_true',
+    parser.add_argument('-k', '--keep_download', action='store_true',
                         help='keep files after closing')
-    parser.add_argument('-nap', action='store_true',
+    parser.add_argument('-nap', '--no_autoplay', action='store_true',
                         help='no autoplay after downloading')
 
     # Parse arguments
     args = parser.parse_args()
 
-    video_should_open = not args.nap
-
     # ensure existence of output directory
-    if args.v:
+    if args.verbose:
         print(
-            f"ensure existence of output directory {args.videoDownDir}", flush=True)
-    ensure_dir(args.videoDownDir)
+            f"ensure existence of output directory {args.download_dir}", flush=True)
+    ensure_dir(args.download_dir)
     print(f"Watching for video links on clipboard.", flush=True)
     print(
-        f"Will download them on the directory: {args.videoDownDir}", flush=True)
+        f"Will download them on the directory: {args.download_dir}", flush=True)
     print(f"Keys:", flush=True)
     print(f"\t'q': Quit", flush=True)
     print(f"\t'p': Pause", flush=True)
     print(f"\t'u': Unpause", flush=True)
-    print(f"\t'd': Toggle delete video after watching", flush=True)
+    print(f"\t'k': Toggle keep video after watching", flush=True)
     print(f"\t'o': Toggle open video after downloading", flush=True)
 
     if args.link:
@@ -244,14 +239,14 @@ if __name__ == "__main__":
                 # Quit / Break out
                 if inp == "q":
                     break
-                # Toggle delete video after watching
-                if inp == "d":
-                    video_should_delete = not video_should_delete
-                    print(f"delete video after watching {video_should_delete}")
+                # Toggle keep video after watching
+                if inp == "k":
+                    args.keep_download = not args.keep_download
+                    print(f"Keep video file after watching {args.keep_download}.")
                 # Toggle open video after downloading
                 if inp == "o":
-                    video_should_open = not video_should_open
-                    print(f"open video after downloading {video_should_open}")
+                    args.no_autoplay = not args.no_autoplay
+                    print(f"Open video after downloading {args.no_autoplay}.")
 
                 # #
             except KeyboardInterrupt:
