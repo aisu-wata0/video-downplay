@@ -164,10 +164,10 @@ def ensure_dir(pathDir):
     pathDir : path to directory you want to exist
     -------
     """
-    if pathDir is None:
+    if not pathDir:
         raise ValueError("Invalid file path")
     try:
-        os.makedirs(pathDir)
+        os.makedirs(pathDir, exist_ok=True)
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
